@@ -1,3 +1,3 @@
-import { Add } from './Add.js';
+import { CreditScoreOracle } from './CreditScoreOracle.js';
 
-export { Add };
+export { CreditScoreOracle };
