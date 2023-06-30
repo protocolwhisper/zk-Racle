@@ -25,13 +25,30 @@ import {
     Circuit, arrayProp, Sign, Signature
   } from 'snarkyjs';
   //import { ExampleToken } from './Token.js';
+
+  class MerkleTree {
+    private tree: Map<string, {num1: number, num2: number, num3: number}>;
+
+    constructor() {
+        this.tree = new Map<string, {num1: number, num2: number, num3: number}>();
+    }
+
+    addValue(key: string, num1: number, num2: number, num3: number): void {
+        this.tree.set(key, {num1, num2, num3});
+    }
+
+    getValues(key: string): {num1: number, num2: number, num3: number} | undefined {
+        return this.tree.get(key);
+    }
+}
+let merkleTree = new MerkleTree(); // How to handle my response to it ??
   
   export class DataRecursiveInput extends Struct({
     oracle_public_key: Field,
     oracle_signature: Signature,
     call_results: Signature,
-    api_result_offchain: Field,
-    api_result_onchain: Field,
+    api_result_offchain: MerkleTree,
+    api_result_onchain: MerkleTree,
   }) {}
   
   export const ZkZscores = Experimental.ZkProgram({
@@ -46,8 +63,9 @@ import {
   
         method(publicInput: DataRecursiveInput ) {
           const {oracle_public_key, oracle_signature, call_results, api_result_offchain, api_result_onchain} = publicInput
-          let calculate_median = (values:typeof call_results) =>{
 
+          let calculate_median = (values:typeof call_results) =>{
+            let 
           }
           function calculateMean(values: number[]): number {
             let sum = values.reduce((a, b) => a + b, 0);

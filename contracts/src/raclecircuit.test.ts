@@ -27,6 +27,8 @@ describe('raclecircuit.js', () => {
     const privateKey = PrivateKey.fromBase58(
       process.env.PRIVATE_KEY ?? key.privateKey);
 
+    
+
 
   });
 
@@ -46,6 +48,7 @@ describe('raclecircuit.js', () => {
       publicKey: string;
     }    
 
+
     let eth_response : ApiResponse = await axios.get(`http://localhost:3000/ETH/1`);
     let btc_response : ApiResponse = await axios.get(`http://localhost:3000/BTC/2`);
     
@@ -53,7 +56,8 @@ describe('raclecircuit.js', () => {
     const eth_prices2 = eth_response.data.prices[1].onchain;
     const eth_prices3 = eth_response.data.prices[2].onchain;
     const eth_prices4 = eth_response.data.prices[3].onchain;
-
+    
+    // can i do round id {eth1 , eth 2 , 3th , eth 4 }
     // Btc prices 
 
     const btc_prices1 = btc_response.data.prices[0].onchain;

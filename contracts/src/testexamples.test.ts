@@ -179,6 +179,7 @@ describe('CreditScoreOracle', () => {
 
       const id = Field(1);
       const creditScore = Field(787);
+      //Conver into  Json
       const signature = Signature.fromJSON({
         r:
           '26545513748775911233424851469484096799413741017006352456100547880447752952428',
