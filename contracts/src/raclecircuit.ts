@@ -1,3 +1,12 @@
+/**
+ * @title Zkracle Contract
+ * @author protocolwhisper
+ *
+ * @notice This contract takes arguments from multiple APIs and uses zk proof to compute the median, standard deviations, and z-score
+ *         to determine which API call has the worst result. If the result exceeds three standard deviations of tolerance,
+ *         the contract flags that API from accessing further contract functionality.
+ */
+
 import {
     SmartContract,
     state,
@@ -15,7 +24,7 @@ import {
     Struct,
     Circuit, arrayProp, Sign, Signature
   } from 'snarkyjs';
-  // import { ExampleToken } from './Token.js';
+  //import { ExampleToken } from './Token.js';
   
   export class DataRecursiveInput extends Struct({
     oracle_public_key: PublicKey,
@@ -36,7 +45,7 @@ import {
         privateInputs: [],
   
         method(publicInput: DataRecursiveInput ) {
-          const {oracle_public_key, oracle_signature, call_results, api_resul_offchain, api_result_onchain} = publicInput
+          const {oracle_public_key, oracle_signature, call_results, api_result_offchain, api_result_onchain} = publicInput
           let calculate_median = (values:typeof call_results) =>{
 
           }
