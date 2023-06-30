@@ -1,4 +1,4 @@
-import { raclecircuit , RecursiveProgram} from './raclecircuit';
+import { DataRecursiveInput, raclecircuit , RecursiveProgram} from './raclecircuit';
 import {
   isReady,
   shutdown,
@@ -22,6 +22,15 @@ describe('raclecircuit.js', () => {
     amount100 = UInt64.from(100);
 
     //
+
+    const key = require('../scripts/key.json');
+    const privateKey = PrivateKey.fromBase58(
+      process.env.PRIVATE_KEY ?? key.privateKey);
+
+
+  });
+
+  beforeEach(async () => {
     interface ApiResponse {
       data: {
         roundId: string;
@@ -39,10 +48,18 @@ describe('raclecircuit.js', () => {
 
     let eth_response : ApiResponse = await axios.get(`http://localhost:3000/ETH/1`);
     let btc_response : ApiResponse = await axios.get(`http://localhost:3000/BTC/2`);
-   
-  });
+    
+    const eth_prices1 = eth_response.data.prices[0].onchain;
+    const eth_prices2 = eth_response.data.prices[1].onchain;
+    const eth_prices3 = eth_response.data.prices[2].onchain;
+    const eth_prices4 = eth_response.data.prices[3].onchain;
 
-  beforeEach(async () => {
+    // Btc prices 
+
+    const btc_prices1 = btc_response.data.prices[0].onchain;
+    const btc_prices2 = btc_response.data.prices[1].onchain;
+    const btc_prices3 = btc_response.data.prices[2].onchain;
+    const btc_prices4 = btc_response.data.prices[3].onchain;
     
     const Local = Mina.LocalBlockchain({ proofsEnabled });
     Mina.setActiveInstance(Local);
@@ -70,16 +87,33 @@ describe('raclecircuit.js', () => {
   });
 
 
-  describe('Validatin Inputs', () => {
+  describe('Validating Inputs', async () => {
+    interface ApiResponse {
+      data: {
+        roundId: string;
+        prices: {
+          offchain: number;
+          onchain: number;
+        }[];
+      };
+      signature: {
+        r: string;
+        s: string;
+      };
+      publicKey: string;
+    }    
 
+    let eth_response : ApiResponse = await axios.get(`http://localhost:3000/ETH/1`);
     
     const DataRecursiveInput = {
-      oracle_public_key: PublicKey,
+      oracle_public_key: Field,
       oracle_signature: Signature,
       call_results: Signature,
       api_result_offchain: Field,
       api_result_onchain: Field,
     }
+    let oracle_key = Field
+    DataRecursiveInput.oracle_public_key = new Field(eth_response.publicKey)
     it.todo('should be correct');
   });
 

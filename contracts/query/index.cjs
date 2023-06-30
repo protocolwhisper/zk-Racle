@@ -34,7 +34,7 @@ export async function getSignedPriceInUSD(symbol, roundId) {
   // be used. In production the key will be loaded from a Vercel environment
   // variable.
 
-  const privateKey = PrivateKey.fromBase58(
+   const privateKey = PrivateKey.fromBase58(
         process.env.PRIVATE_KEY ?? key.privateKey
     );
 
@@ -58,6 +58,7 @@ export async function getSignedPriceInUSD(symbol, roundId) {
   const nearbyValue3 = generateNearbyValue(knownPriceInUSD);
 
   // Convert these nearby values to Field as well
+  // This are the ones that will be onchain
   const nearbyField1 = Field(Math.floor(nearbyValue1 * 100));
   const nearbyField2 = Field(Math.floor(nearbyValue2 * 100));
   const nearbyField3 = Field(Math.floor(nearbyValue3 * 100));

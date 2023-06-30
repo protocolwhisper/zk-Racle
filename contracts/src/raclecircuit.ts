@@ -27,14 +27,14 @@ import {
   //import { ExampleToken } from './Token.js';
   
   export class DataRecursiveInput extends Struct({
-    oracle_public_key: PublicKey,
+    oracle_public_key: Field,
     oracle_signature: Signature,
     call_results: Signature,
     api_result_offchain: Field,
     api_result_onchain: Field,
   }) {}
   
-  export const RecursiveProgram = Experimental.ZkProgram({
+  export const ZkZscores = Experimental.ZkProgram({
     publicInput: DataRecursiveInput ,
   
     methods: {
@@ -77,6 +77,8 @@ import {
           // verify earlier proof
           earlierProof.verify();
           // assert balances are >= 0 for both parties
+          // I can implement here for just obtaining the a random value that it's not the same as de worst z-score
+        // So for each roundId I have a value which will make sense tho 
           publicInput.user1Balance.assertGreaterThanOrEqual(0, "user1 balance cannot be < 0 due to this transfer")
           publicInput.user2Balance.assertGreaterThanOrEqual(0, "user2 balance cannot be < 0 due to this transfer")
   
@@ -87,15 +89,26 @@ import {
     },
   });
   
-  export class RecursiveProof extends Experimental.ZkProgram.Proof(RecursiveProgram) {}
+  export class RecursiveProof extends Experimental.ZkProgram.Proof(ZkZscores) {}
+
   
+  const TRUSTED_ORACLE = "B62qibrVhEnDYFnZmPCyuvtxcVRxD62bLBsSTmFS85AP7g7X9fsBepJ"
   export class Lightning extends SmartContract {
     /**
      * We need a hash map that tells us user|token -> the amount of time left until time lock expires.
      * every time sendTokens is called we first check the time lock is not expired
+     * 
      */
+      // Define contract state
+    @state(PublicKey) oraclePublicKey = State<PublicKey>();
     @state(Field) timeLockMerkleMapRoot = State<Field>();
     @state(Field) balanceMerkleMapRoot = State<Field>();
+    // This doesn't work 
+    @state(arrayProp) api_responses = State<arrayProp>();
+
+    events = {
+      verified: Field,
+    };
   
     deploy() {
       super.deploy();
@@ -121,159 +134,25 @@ import {
     }
   
     /**
-     * Deposits a particular token balance and locks it for at least the next 5 blocks
+     * Verifys is the input Response is from the Oracle
      */
-    @method deposit(
-      userAddress: PublicKey,
-      tokenAddress: PublicKey,
-      tokenAmount: UInt64,
-      timeLock: UInt32,
-      timeLockBefore: Field,
-      balanceBefore: Field,
-      timeLockPath: MerkleMapWitness,
-      balancePath: MerkleMapWitness
-    ) {
-      const token = new ExampleToken(tokenAddress);
-      const blockHeight = this.network.blockchainLength.get();
-      this.network.blockchainLength.assertEquals(
-        this.network.blockchainLength.get()
-      );
-      
-      timeLock.assertGreaterThan(blockHeight.add(5), "timeLock must be at least 5 blocks ahead")
-  
-      // deposit tokens from the user to this contract
-      token.sendTokens(userAddress, this.address, tokenAmount);
-  
-      // get state roots
-      const timeLockRoot = this.timeLockMerkleMapRoot.get();
-      this.timeLockMerkleMapRoot.assertEquals(timeLockRoot);
-  
-      const balanceRoot = this.balanceMerkleMapRoot.get();
-      this.balanceMerkleMapRoot.assertEquals(balanceRoot);
-  
-      // verify witnesses
-      const [timeLockRootBefore, timeLockKey] =
-        timeLockPath.computeRootAndKey(timeLockBefore);
-      timeLockRootBefore.assertEquals(timeLockRoot, "deposit time lock root not equal");
-      timeLockKey.assertEquals(
-        this.serializeTimeLockKey(userAddress, tokenAddress), "deposit time lock keys not equal"
-      );
-      const [balanceRootBefore, balanceKey] =
-        balancePath.computeRootAndKey(balanceBefore);
-      balanceRootBefore.assertEquals(balanceRoot, "deposit balance root not equal");
-      balanceKey.assertEquals(
-        this.serializeBalancekKey(userAddress, tokenAddress), "deposit balance keys not equal"
-      );
-  
-      // compute the new timeLock root after adding more time lock to the user's deposit
-      const [newTimeLockRoot] = timeLockPath.computeRootAndKey(
-        Field.fromFields(timeLock.toFields())
-      );
-      // compute the new root after incrementing the balance for the user for that token
-      const [newBalanceRoot] = balancePath.computeRootAndKey(
-        balanceBefore.add(Field.fromFields(tokenAmount.toFields()))
-      );
-  
-      // set new roots
-      this.timeLockMerkleMapRoot.set(newTimeLockRoot);
-      this.balanceMerkleMapRoot.set(newBalanceRoot);
+    @method verifySignature(roundIdField: Field, 
+      priceField : Field,
+      nearbyField1 : Field,
+      nearbyField2: Field,
+      nearbyField3: Field,signature: Signature){
+        const oraclePublicKey = this.oraclePublicKey.get()
+        this.oraclePublicKey.assertEquals(oraclePublicKey);
+        // Evaluate whether the signature is valid for the provided data
+        const validSignature = signature.verify(oraclePublicKey, [roundIdField, priceField , nearbyField1 , nearbyField2 , nearbyField3]);
+        validSignature.assertTrue();
+        // Emit an event containing the verified users id
+        this.emitEvent('verified', roundIdField);
+      }
+
+    @method postProof(proof: RecursiveProof){
+      // The proof is correct now whut?
     }
-  
-    @method postProof(
-      tokenAddress: PublicKey,
-      userAddress: PublicKey,
-      balanceWitness: MerkleMapWitness,
-      balance: Field,
-      proof: RecursiveProof
-    ) {
-      proof.verify()
-      const { user1Balance, user2Balance, user1 } = proof.publicInput
-  
-      const balanceRoot = this.balanceMerkleMapRoot.get();
-      this.balanceMerkleMapRoot.assertEquals(balanceRoot);
-  
-      const [balanceRootBefore, balanceKey] = balanceWitness.computeRootAndKey(balance);
-      balanceRootBefore.assertEquals(balanceRoot);
-      balanceKey.assertEquals(
-        this.serializeBalancekKey(userAddress, tokenAddress)
-      );
-  
-      const newBalance = Circuit.if(userAddress.equals(user1), user1Balance, user2Balance)
-  
-      let [newBalanceRoot] = balanceWitness.computeRootAndKey(
-        newBalance
-      );
-  
-      this.balanceMerkleMapRoot.set(newBalanceRoot);
-    }
-  
-    @method withdraw(
-      tokenAddress: PublicKey,
-      userAddress: PublicKey,
-      timeLockWitness: MerkleMapWitness,
-      balanceWitness: MerkleMapWitness,
-      timeLock: Field,
-      balance: Field
-    ) {
-      // get state roots
-      const timeLockRoot = this.timeLockMerkleMapRoot.get();
-      this.timeLockMerkleMapRoot.assertEquals(timeLockRoot);
-  
-      const balanceRoot = this.balanceMerkleMapRoot.get();
-      this.balanceMerkleMapRoot.assertEquals(balanceRoot);
-  
-      // verify witnesses
-      const [timeLockRootBefore, timeLockKey] =
-      timeLockWitness.computeRootAndKey(timeLock);
-      timeLockRootBefore.assertEquals(timeLockRoot, "withdraw time lock  is wrong");
-      timeLockKey.assertEquals(
-        this.serializeTimeLockKey(userAddress, tokenAddress), "wirthdraw time lock keys not equal"
-      );
-      const [balanceRootBefore, balanceKey] =
-        balanceWitness.computeRootAndKey(balance);
-      balanceRootBefore.assertEquals(balanceRoot, "deposit balance root not equal");
-      balanceKey.assertEquals(
-        this.serializeBalancekKey(userAddress, tokenAddress), "deposit balance keys not equal"
-      );
-  
-      this.network.blockchainLength.assertEquals(this.network.blockchainLength.get())
-      timeLock.assertLessThan(Field.fromFields(this.network.blockchainLength.get().toFields()), "cannot withdraw before time lock period ends")
-      
-      // send the tokens to the user
-      const token = new ExampleToken(tokenAddress);
-      token.sendTokens(this.address, userAddress, UInt64.from(balance))
-  
-      // reset state for that user
-      const [newBalanceRoot] = balanceWitness.computeRootAndKey(
-        Field(0)
-      );
-      const [newTimeLockRoot] = timeLockWitness.computeRootAndKey(
-        Field(0)
-      );
-      this.balanceMerkleMapRoot.set(newBalanceRoot);
-      this.timeLockMerkleMapRoot.set(newTimeLockRoot);
-    }
-  
-    @method serializeTimeLockKey(
-      userAddress: PublicKey,
-      tokenAddress: PublicKey
-    ): Field {
-      return Poseidon.hash([
-        ...userAddress.toFields(),
-        ...tokenAddress.toFields(),
-        Field(0),
-      ]);
-    }
-  
-    @method serializeBalancekKey(
-      userAddress: PublicKey,
-      tokenAddress: PublicKey
-    ): Field {
-      return Poseidon.hash([
-        ...userAddress.toFields(),
-        ...tokenAddress.toFields(),
-        Field(1),
-      ]);
-    }
+        
   }
   
