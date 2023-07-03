@@ -24,31 +24,12 @@ import {
     Struct,
     Circuit, arrayProp, Sign, Signature
   } from 'snarkyjs';
-  //import { ExampleToken } from './Token.js';
-
-  class MerkleTree {
-    private tree: Map<string, {num1: number, num2: number, num3: number}>;
-
-    constructor() {
-        this.tree = new Map<string, {num1: number, num2: number, num3: number}>();
-    }
-
-    addValue(key: string, num1: number, num2: number, num3: number): void {
-        this.tree.set(key, {num1, num2, num3});
-    }
-
-    getValues(key: string): {num1: number, num2: number, num3: number} | undefined {
-        return this.tree.get(key);
-    }
-}
-let merkleTree = new MerkleTree(); // How to handle my response to it ??
   
   export class DataRecursiveInput extends Struct({
     oracle_public_key: Field,
     oracle_signature: Signature,
     call_results: Signature,
-    api_result_offchain: MerkleTree,
-    api_result_onchain: MerkleTree,
+    api_result_onchain: Circuit.array(UInt32 , 4), // Only the numbers of my api_calls
   }) {}
   
   export const ZkZscores = Experimental.ZkProgram({
@@ -62,25 +43,49 @@ let merkleTree = new MerkleTree(); // How to handle my response to it ??
         privateInputs: [],
   
         method(publicInput: DataRecursiveInput ) {
-          const {oracle_public_key, oracle_signature, call_results, api_result_offchain, api_result_onchain} = publicInput
+          const api_results_offchain = publicInput.api_result_onchain 
+          //Let's breakdown or values 
+          let firstcall = new Field(api_results_offchain[0].value)
+          let secondcall = new Field(api_results_offchain[1].value)
+          let thirdcall = new Field(api_results_offchain[2].value)
+          let fourthcall = new Field(api_results_offchain[3].value)
+          // Calculate mean (average)
+          let mean = (firstcall.add(secondcall).add(thirdcall).add(fourthcall)) 
+          mean = mean.div(api_results_offchain.length)
 
-          let calculate_median = (values:typeof call_results) =>{
-            let 
-          }
-          function calculateMean(values: number[]): number {
-            let sum = values.reduce((a, b) => a + b, 0);
-            return sum / values.length;
-          }
+          // Calculate standard deviation
+          let stdone = firstcall.sub(mean)
+          stdone = stdone.square()
+          let stdtwo = firstcall.sub(mean)
+          stdtwo = stdtwo.square()
+          let stdthree = firstcall.sub(mean)
+          stdthree = stdthree.square()
+          let stdfour = firstcall.sub(mean)
+          stdfour = stdfour.square()
 
-          let mean =  calculateMean(api_resul_offchain);
+          let std = stdone.add(stdtwo).add(stdthree).add(stdfour)
+          std = std.div(api_results_offchain.length - 1)
+        // Calculate z-scores
+          let zScoresone  = firstcall.sub(mean)
+          zScoresone = zScoresone.div(std)
+          let zScoretwo  = firstcall.sub(mean)
+          zScoretwo = zScoresone.div(std)
+          let zScorethree  = firstcall.sub(mean)
+          zScorethree = zScoresone.div(std)
+          let zScorefour  = firstcall.sub(mean)
+          zScorefour = zScoresone.div(std)
+          
+          // Asserts
+          expect(zScoresone).toBeGreaterThanOrEqual(-2);
+          expect(zScoresone).toBeLessThanOrEqual(2);
+          expect(zScoretwo).toBeGreaterThanOrEqual(-2);
+          expect(zScoretwo).toBeLessThanOrEqual(2);
+          expect(zScorethree).toBeGreaterThanOrEqual(-2);
+          expect(zScorethree).toBeLessThanOrEqual(2);
+          expect(zScorefour).toBeGreaterThanOrEqual(-2);
+          expect(zScorefour).toBeLessThanOrEqual(2);
 
-          let [balanceRootBefore] =
-            balance1Witness.computeRootAndKey(user1Balance);
-          balanceRootBefore.assertEquals(balanceRoot, "balance1Witness does not match root");
-          [balanceRootBefore] =
-            balance2Witness.computeRootAndKey(user2Balance);
-          balanceRootBefore.assertEquals(balanceRoot, "balance2Witness does not match root");
-          transferFrom1to2.assertEquals(Field(0), 'In the baseCase transfer amount should be 0')
+         
         },
       },
   
@@ -93,15 +98,28 @@ let merkleTree = new MerkleTree(); // How to handle my response to it ??
          */
         method(publicInput: DataRecursiveInput , earlierProof: SelfProof<DataRecursiveInput >) {
           // verify earlier proof
-          earlierProof.verify();
+        earlierProof.verify();
           // assert balances are >= 0 for both parties
           // I can implement here for just obtaining the a random value that it's not the same as de worst z-score
-        // So for each roundId I have a value which will make sense tho 
-          publicInput.user1Balance.assertGreaterThanOrEqual(0, "user1 balance cannot be < 0 due to this transfer")
-          publicInput.user2Balance.assertGreaterThanOrEqual(0, "user2 balance cannot be < 0 due to this transfer")
-  
-          earlierProof.publicInput.user1Balance.sub(publicInput.transferFrom1to2).assertEquals(publicInput.user1Balance, "user1 balance is not correct")
-          earlierProof.publicInput.user2Balance.add(publicInput.transferFrom1to2).assertEquals(publicInput.user2Balance, "user2 balance is not correct")
+        // So for each roundId I have a value which will make sense tho   
+        const api_results_offchain = earlierProof.publicInput.api_result_onchain 
+        //Let's breakdown or values 
+
+        //Do a random function 
+        let proofcall = new Field(api_results_offchain[0].value)
+        let proofcalltwo = new Field(api_results_offchain[1].value)
+        let proofcallthree = new Field(api_results_offchain[2].value)
+        let proofcallfour = new Field(api_results_offchain[3].value)
+
+        let firstcall = new Field(publicInput.api_result_onchain[0].value)
+        let secondcall = new Field(publicInput.api_result_onchain[1].value)
+        let thirdcall = new Field(publicInput.api_result_onchain[2].value)
+        let fourthcall = new Field(publicInput.api_result_onchain[3].value)
+        
+        proofcall.assertEquals(firstcall)
+        proofcalltwo.assertEquals(firstcall)
+        proofcallthree.assertEquals(firstcall)
+        proofcallfour.assertEquals(firstcall)
         },
       },
     },
@@ -122,7 +140,6 @@ let merkleTree = new MerkleTree(); // How to handle my response to it ??
     @state(Field) timeLockMerkleMapRoot = State<Field>();
     @state(Field) balanceMerkleMapRoot = State<Field>();
     // This doesn't work 
-    @state(arrayProp) api_responses = State<arrayProp>();
 
     events = {
       verified: Field,
@@ -136,7 +153,6 @@ let merkleTree = new MerkleTree(); // How to handle my response to it ??
       this.account.permissions.set({
         ...Permissions.default(),
         editState: permissionToEdit,
-        setTokenSymbol: permissionToEdit,
         send: permissionToEdit,
         receive: permissionToEdit,
       });
@@ -170,6 +186,7 @@ let merkleTree = new MerkleTree(); // How to handle my response to it ??
 
     @method postProof(proof: RecursiveProof){
       // The proof is correct now whut?
+      
     }
         
   }
