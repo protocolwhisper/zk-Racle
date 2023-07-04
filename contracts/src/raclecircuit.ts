@@ -22,13 +22,13 @@ import {
     Poseidon,
     SelfProof,
     Struct,
-    Circuit, arrayProp, Sign, Signature
+    Circuit, arrayProp, Sign, Signature, PrivateKey, CircuitString
   } from 'snarkyjs';
+import { fromBase58Check } from 'snarkyjs/dist/node/provable/base58';
   
   export class DataRecursiveInput extends Struct({
     oracle_public_key: Field,
-    oracle_signature: Signature,
-    call_results: Signature,
+    signed_call_results: Signature,
     api_result_onchain: Circuit.array(UInt32 , 4), // Only the numbers of my api_calls
   }) {}
   
@@ -127,7 +127,7 @@ import {
   
   export class RecursiveProof extends Experimental.ZkProgram.Proof(ZkZscores) {}
 
-  
+  //Maybe i need to use the private key 
   const TRUSTED_ORACLE = "B62qibrVhEnDYFnZmPCyuvtxcVRxD62bLBsSTmFS85AP7g7X9fsBepJ"
   export class Lightning extends SmartContract {
     /**
@@ -139,10 +139,15 @@ import {
     @state(PublicKey) oraclePublicKey = State<PublicKey>();
     @state(Field) timeLockMerkleMapRoot = State<Field>();
     @state(Field) balanceMerkleMapRoot = State<Field>();
+    @state(Field) roundId = State<Field>();
+    @state(Field) latestPrice = State<Field>();
+    @state(CircuitString) pair =  State<CircuitString>();
     // This doesn't work 
 
     events = {
       verified: Field,
+      proofVerified: Field ,
+
     };
   
     deploy() {
@@ -158,15 +163,21 @@ import {
       });
     }
   
-    @method init() {
-      super.init();
+    @method init(zkAppKey: PrivateKey) {
+      super.init(zkAppKey);
+      this.roundId.set(Field(0));
+      this.oraclePublicKey.set(PublicKey.fromBase58(TRUSTED_ORACLE));
+      this.requireSignature // Let's ask for the tx to be signed with the pk
     }
-  
-    @method initState(timeLockRoot: Field, balanceRoot: Field) {
-      this.timeLockMerkleMapRoot.set(timeLockRoot);
-      this.balanceMerkleMapRoot.set(balanceRoot);
+    @method initPair(currency: CircuitString) {
+       this.pair.set(currency)
     }
-  
+
+    @method getPair(){
+      let pair = this.pair.get()
+      this.pair.assertEquals(pair)
+      return pair
+    }
     /**
      * Verifys is the input Response is from the Oracle
      */
@@ -175,6 +186,7 @@ import {
       nearbyField1 : Field,
       nearbyField2: Field,
       nearbyField3: Field,signature: Signature){
+        // Let's put the roun id
         const oraclePublicKey = this.oraclePublicKey.get()
         this.oraclePublicKey.assertEquals(oraclePublicKey);
         // Evaluate whether the signature is valid for the provided data
@@ -184,9 +196,25 @@ import {
         this.emitEvent('verified', roundIdField);
       }
 
-    @method postProof(proof: RecursiveProof){
-      // The proof is correct now whut?
+    @method postProof(proof: RecursiveProof , prices_witness : MerkleMapWitness){
+      let{oracle_public_key, signed_call_results, api_result_onchain} = proof.publicInput
+      // Verify Signature
+      this.verifySignature(this.roundId.get() , api_result_onchain[0].value ,api_result_onchain[1].value,api_result_onchain[2].value,api_result_onchain[3].value , signed_call_results )
+      // Verify Proof
+      proof.verify() 
+      this.emitEvent('proofVerified', signed_call_results)
+      //Update rounId 
+      this.roundId.set(this.roundId.get().add(1))
       
+      let price_feed = proof.publicInput.api_result_onchain
+      let sortedArray = price_feed.sort()
+
+      let latestPrice = this.latestPrice.get()
+      this.latestPrice.assertEquals(latestPrice)
+
+      this.latestPrice.set(price_feed[1].value)
+
+
     }
         
   }

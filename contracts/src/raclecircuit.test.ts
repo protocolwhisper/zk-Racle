@@ -122,6 +122,9 @@ describe('raclecircuit.js', () => {
   });
 
   describe('raclecircuit()', () => {
+    let price_witness = new MerkleMap();
+    let initWitness = price_witness.getRoot()
+    
     it.todo('should be correct');
   });
 
