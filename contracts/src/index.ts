@@ -1,3 +1,3 @@
-import { CreditScoreOracle } from './CreditScoreOracle.js';
+import { zkracle } from './raclecircuit.js';
 
-export { CreditScoreOracle };
+export { zkracle };

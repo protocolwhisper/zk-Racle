@@ -24,7 +24,7 @@ import {
     Struct,
     Circuit, arrayProp, Sign, Signature, PrivateKey, CircuitString
   } from 'snarkyjs';
-import { fromBase58Check } from 'snarkyjs/dist/node/provable/base58';
+
   
   export class DataRecursiveInput extends Struct({
     oracle_public_key: Field,
@@ -129,7 +129,7 @@ import { fromBase58Check } from 'snarkyjs/dist/node/provable/base58';
 
   //Maybe i need to use the private key 
   const TRUSTED_ORACLE = "B62qibrVhEnDYFnZmPCyuvtxcVRxD62bLBsSTmFS85AP7g7X9fsBepJ"
-  export class Lightning extends SmartContract {
+  export class zkracle extends SmartContract {
     /**
      * We need a hash map that tells us user|token -> the amount of time left until time lock expires.
      * every time sendTokens is called we first check the time lock is not expired
@@ -176,7 +176,7 @@ import { fromBase58Check } from 'snarkyjs/dist/node/provable/base58';
     @method getPair(){
       let pair = this.pair.get()
       this.pair.assertEquals(pair)
-      return pair
+      return pair 
     }
     /**
      * Verifys is the input Response is from the Oracle
@@ -196,7 +196,7 @@ import { fromBase58Check } from 'snarkyjs/dist/node/provable/base58';
         this.emitEvent('verified', roundIdField);
       }
 
-    @method postProof(proof: RecursiveProof , prices_witness : MerkleMapWitness){
+    @method postProof(proof: RecursiveProof){
       let{oracle_public_key, signed_call_results, api_result_onchain} = proof.publicInput
       // Verify Signature
       this.verifySignature(this.roundId.get() , api_result_onchain[0].value ,api_result_onchain[1].value,api_result_onchain[2].value,api_result_onchain[3].value , signed_call_results )
@@ -205,13 +205,14 @@ import { fromBase58Check } from 'snarkyjs/dist/node/provable/base58';
       this.emitEvent('proofVerified', signed_call_results)
       //Update rounId 
       this.roundId.set(this.roundId.get().add(1))
-      
+      // We get our array 
       let price_feed = proof.publicInput.api_result_onchain
+      //SORTED
       let sortedArray = price_feed.sort()
-
+      //Call our state variable
       let latestPrice = this.latestPrice.get()
       this.latestPrice.assertEquals(latestPrice)
-
+      // Update our variable
       this.latestPrice.set(price_feed[1].value)
 
 

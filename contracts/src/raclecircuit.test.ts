@@ -1,4 +1,5 @@
-import { DataRecursiveInput, raclecircuit , RecursiveProgram} from './raclecircuit';
+import { circuitArray } from 'snarkyjs/dist/node/lib/circuit_value';
+import { zkracle , ZkZscores , RecursiveProof, DataRecursiveInput  } from './raclecircuit';
 import {
   isReady,
   shutdown,
@@ -11,124 +12,82 @@ import {
   Field,
   Poseidon,
   MerkleMap,
+  CircuitString,
+  UInt32,
+  Circuit,
 } from 'snarkyjs';
 
-import axios from 'axios';
+let proofsEnabled = false;
 
-describe('raclecircuit.js', () => {
+describe('ZkOracle', () => {
+  let deployerAccount: PublicKey,
+    deployerKey: PrivateKey,
+    zkOracleAddress: PublicKey,
+    zkOraclePrivateKey: PrivateKey,
+    zkOracle: zkracle,
+    proof: Field;
+
   beforeAll(async () => {
     await isReady;
-    if (proofsEnabled) Lightning.compile();
-    amount100 = UInt64.from(100);
-
-    //
-
-    const key = require('../scripts/key.json');
-    const privateKey = PrivateKey.fromBase58(
-      process.env.PRIVATE_KEY ?? key.privateKey);
-
-    
-
-
+    if (proofsEnabled) zkracle.compile();
   });
 
-  beforeEach(async () => {
-    interface ApiResponse {
-      data: {
-        roundId: string;
-        prices: {
-          offchain: number;
-          onchain: number;
-        }[];
-      };
-      signature: {
-        r: string;
-        s: string;
-      };
-      publicKey: string;
-    }    
-
-
-    let eth_response : ApiResponse = await axios.get(`http://localhost:3000/ETH/1`);
-    let btc_response : ApiResponse = await axios.get(`http://localhost:3000/BTC/2`);
-    
-    const eth_prices1 = eth_response.data.prices[0].onchain;
-    const eth_prices2 = eth_response.data.prices[1].onchain;
-    const eth_prices3 = eth_response.data.prices[2].onchain;
-    const eth_prices4 = eth_response.data.prices[3].onchain;
-    
-    // can i do round id {eth1 , eth 2 , 3th , eth 4 }
-    // Btc prices 
-
-    const btc_prices1 = btc_response.data.prices[0].onchain;
-    const btc_prices2 = btc_response.data.prices[1].onchain;
-    const btc_prices3 = btc_response.data.prices[2].onchain;
-    const btc_prices4 = btc_response.data.prices[3].onchain;
-    
+  beforeEach(() => {
     const Local = Mina.LocalBlockchain({ proofsEnabled });
     Mina.setActiveInstance(Local);
     ({ privateKey: deployerKey, publicKey: deployerAccount } =
       Local.testAccounts[0]);
-    ({ privateKey: senderKey, publicKey: senderAccount } =
-      Local.testAccounts[1]);
-    zkAppPrivateKey = PrivateKey.random();
-    zkAppAddress = zkAppPrivateKey.toPublicKey();
-    zkApp = new Lightning(zkAppAddress);
-    timeLockMerkleMap = new MerkleMap();
-    balanceMerkeleMap = new MerkleMap();
+    zkOraclePrivateKey = PrivateKey.random();
+    zkOracleAddress = zkOraclePrivateKey.toPublicKey();
+    zkOracle = new zkracle(zkOracleAddress);
+    proof = Field.random(); // What's with this proof 
 
-    // init token contract
-    tokenPrivateKey = PrivateKey.random();
-    tokenAddress = tokenPrivateKey.toPublicKey();
-    tokenApp = new ExampleToken(tokenAddress);
   });
 
   afterAll(() => {
-    // `shutdown()` internally calls `process.exit()` which will exit the running Jest process early.
-    // Specifying a timeout of 0 is a workaround to defer `shutdown()` until Jest is done running all tests.
-    // This should be fixed with https://github.com/MinaProtocol/mina/issues/10943
     setTimeout(shutdown, 0);
   });
 
+  async function localDeploy() {
+    const txn = await Mina.transaction(deployerAccount, () => {
+      AccountUpdate.fundNewAccount(deployerAccount);
+      zkOracle.init(deployerKey)
+      zkOracle.initPair(CircuitString.fromString('ETH'))
+      zkOracle.deploy();
+    });
+    await txn.prove();
+    await txn.sign([deployerKey]).send();
+    return true
+  }
 
-  describe('Validating Inputs', async () => {
-    interface ApiResponse {
-      data: {
-        roundId: string;
-        prices: {
-          offchain: number;
-          onchain: number;
-        }[];
-      };
-      signature: {
-        r: string;
-        s: string;
-      };
-      publicKey: string;
-    }    
+  it('Init contract state', async () => {
+    let deploy = await localDeploy();
+    expect(deploy).toBeTruthy();
+  });
 
-    let eth_response : ApiResponse = await axios.get(`http://localhost:3000/ETH/1`);
-    
-    const DataRecursiveInput = {
-      oracle_public_key: Field,
-      oracle_signature: Signature,
-      call_results: Signature,
-      api_result_offchain: Field,
-      api_result_onchain: Field,
+  it('Generate zkzscores-circuit proofs', async () => {
+    await localDeploy();
+    // Pull from the API'S in the next version
+    let mock_api_results = Circuit.array(UInt32,5)
+    // ETH Prices
+    let results = new Field(185252)
+    let resultsone = new Field(187501)
+    let resultstwo = new Field(181632)
+    let resuktsthree = new Field(186444)
+    mock_api_results.fromFields([results , resultsone , resultstwo , resuktsthree])
+    let mock2 = Signature.create(deployerKey , [results , resultsone , resultstwo , resuktsthree])
+    const DataRecursiveInput = {oracle_public_key: deployerAccount,
+      signed_call_results: mock2,
+      api_result_onchain: mock_api_results, 
+      
     }
-    let oracle_key = Field
-    DataRecursiveInput.oracle_public_key = new Field(eth_response.publicKey)
-    it.todo('should be correct');
-  });
-
-  describe('raclecircuit()', () => {
-    let price_witness = new MerkleMap();
-    let initWitness = price_witness.getRoot()
-    
-    it.todo('should be correct');
-  });
-
-  describe('raclecircuit()', () => {
-    it.todo('should be correct');
+    let proof = await ZkZscores.baseCase(DataRecursiveInput)
+    let pricebefore = await zkOracle.latestPrice.get()
+    const postDataTxn = await Mina.transaction(deployerAccount, () => {
+      zkOracle.postProof(proof);
+    });
+    await postDataTxn.prove();
+    await postDataTxn.sign([deployerKey]).send();
+    expect(zkOracle.latestPrice.get()).not.toBe(pricebefore)
   });
 });
