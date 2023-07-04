@@ -3,6 +3,11 @@
 The Zkracle Contract is an innovative smart contract that leverages zk proofs to compute the median, standard deviations, and z-scores of API call results. This approach flags any API that returns a result exceeding three standard deviations of tolerance, ensuring data integrity.
 This contract addresses the need for a robust oracle structure that doesn't rely on another network for data replication. Our goal is to enhance data handling in blockchain, contributing to more secure and trustworthy decentralized applications.
 
+For a visual representation of how the Zkracle Contract works, see the diagram below:
+
+<p align="center">
+  <img src="https://i.postimg.cc/T2cv9bTN/Minhack.png" alt="Diagram">
+</p>
 
 ## 📋 Workflow
 
@@ -16,9 +21,7 @@ This contract addresses the need for a robust oracle structure that doesn't rely
 8. ✅ The contract has a method to verify the signature of the oracle. It checks if the signature is valid for the provided data. If the signature is valid, it emits a 'verified' event with the round ID.
 9. 📬 The contract has a method to post a proof. It verifies the signature and the proof, emits a 'proofVerified' event, increments the round ID, and updates the latest price with the median of the API call results.
 
-<p align="center">
-  <img src="https://i.postimg.cc/T2cv9bTN/Minhack.png" alt="Diagram">
-</p>
+
 
 
 ## 🛠️ Installation
