@@ -1,4 +1,4 @@
-# 🚀 Zkracle Contract
+# 🚀 Zkracle Contract (ZK-ORACLE)
 
 The Zkracle Contract is an innovative smart contract that leverages zk proofs to compute the median, standard deviations, and z-scores of API call results. This approach flags any API that returns a result exceeding three standard deviations of tolerance, ensuring data integrity.
 This contract addresses the need for a robust oracle structure that doesn't rely on another network for data replication. Our goal is to enhance data handling in blockchain, contributing to more secure and trustworthy decentralized applications.
